@@ -4,6 +4,7 @@ import logging
 from matplotlib import pyplot as plt
 import math
 import argparse
+import numpy as np
 
 from data.brain import BrainDataset
 from model.vae import VAE
@@ -16,9 +17,9 @@ def plot_vae_samples(samples):
     assert n_rows * n_rows == num_samples, "Number of samples must be a square number."
 
     fig, axs = plt.subplots(nrows=n_rows, ncols=n_rows)
-    for ax, sample in zip(axs, samples):
+    for ax, sample in zip(np.reshape(axs, -1), samples):
         img = torch.squeeze(sample).cpu().numpy()
-        ax[0].imshow(img, cmap='Greys_r')
+        ax.imshow(img, cmap='Greys_r')
 
 
 def train(model, data, device,
@@ -49,7 +50,7 @@ def train(model, data, device,
 
             optimizer.zero_grad()
 
-            elbo = model.elbo(batch)
+            elbo = model.elbo(batch, num_encoder_samples=10)
             (-elbo.elbo).backward()
             optimizer.step()
 
@@ -60,9 +61,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100, help="Number of epochs to train.")
     parser.add_argument("--dataset", type=str, required=True, help="Path to brain dataset.")
-    parser.add_argument("--num_layers", type=int, default=7, help="Number of layers.")
+    parser.add_argument("--num_layers", type=int, default=3, help="Number of layers.")
     parser.add_argument("--latent_size", type=int, default=32, help="Size of latent space.")
-    parser.add_argument("--device", type=str, choices=['cpu', 'gpu'], default='gpu', help="Which device to use.")
+    parser.add_argument("--device",
+                        type=str, choices=['cpu', 'gpu'],
+                        default='gpu',
+                        help="Which device to use.")
     parser.add_argument("--plot_samples", type=bool, default=True, help="Whether to plot samples.")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
     args = parser.parse_args()

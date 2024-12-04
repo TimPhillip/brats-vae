@@ -16,26 +16,28 @@ class Encoder(nn.Sequential):
         in_channels = 1
 
         assert input_size[0] == input_size[1]
-        final_size = input_size[0] - (kernel_size - 1) * num_layers
+        self.size_after_conv = input_size[0]
+        for i in range(num_layers):
+            self.size_after_conv = (self.size_after_conv - (kernel_size - 1) - 1) // 2 + 1
 
-        print(f"Encoder Final Size: {final_size}")
+        print(f"Encoder Final Size: {self.size_after_conv}")
 
         for i in range(num_layers):
-            conv  = nn.Conv2d(
+            conv = nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=num_filters,
                 kernel_size=kernel_size,
-                stride=1,
+                stride=2
             )
             layers.append(conv)
             in_channels = num_filters
             layers.append(nn.ReLU())
 
         layers.append(
-            torch.nn.Flatten()
+            torch.nn.Flatten(start_dim=1)
         )
         layers.append(
-            torch.nn.Linear(final_size * final_size * num_filters, 2 * latent_size)
+            torch.nn.Linear(self.size_after_conv**2 * num_filters, 2 * latent_size)
         )
 
         super(Encoder, self).__init__(*layers)
@@ -59,16 +61,14 @@ class Decoder(nn.Sequential):
         out_channels = 1
 
         assert final_size[0] == final_size[1]
-        input_size = final_size[0] - (kernel_size - 1) * (num_layers)
-
-        print(f"Decoder Initial Size: { input_size }")
+        print(f"Decoder Initial Size: { final_size }")
 
         layers.append(
-            torch.nn.Linear(latent_size, input_size * input_size * in_channels)
+            torch.nn.Linear(latent_size, final_size[0] * final_size[1] * in_channels)
         )
 
         layers.append(
-            torch.nn.Unflatten(dim=1, unflattened_size=[in_channels, input_size, input_size])
+            torch.nn.Unflatten(dim=1, unflattened_size=[in_channels, final_size[0], final_size[1]])
         )
 
         for i in range(num_layers):
@@ -76,7 +76,8 @@ class Decoder(nn.Sequential):
             conv = nn.ConvTranspose2d(
                 in_channels=in_channels,
                 out_channels=num_filters if i < num_layers - 1 else out_channels,
-                kernel_size=kernel_size
+                kernel_size=kernel_size,
+                stride=2
             )
             layers.append(conv)
             in_channels = num_filters
@@ -104,7 +105,7 @@ class VAE(nn.Module):
                  num_decoder_layers):
         super().__init__()
 
-        kernel_size = 32
+        kernel_size = 10
         num_filters = 32
 
         self.latent_size = latent_size
@@ -113,7 +114,7 @@ class VAE(nn.Module):
                                num_filters=num_filters,
                                kernel_size=kernel_size,
                                latent_size=latent_size)
-        self.decoder = Decoder(final_size=input_size,
+        self.decoder = Decoder(final_size=(self.encoder.size_after_conv, self.encoder.size_after_conv),
                                num_layers=num_decoder_layers,
                                num_filters=num_filters,
                                kernel_size=kernel_size,
@@ -146,6 +147,7 @@ class VAE(nn.Module):
             )
 
         rec_ll /= num_encoder_samples
+        rec_ll = torch.mean(rec_ll)
         kl = torch.sum(torch.distributions.kl_divergence(latent_dist, self.latent_prior_distribution))
         loss = rec_ll - kl
         return ELBO(
@@ -162,13 +164,14 @@ class VAE(nn.Module):
 
 if __name__ == "__main__":
 
-    x = torch.randn((1, 3, 31, 31))
+    x = torch.rand((32, 1, 240, 240))
 
-    conv = torch.nn.ConvTranspose2d(
-        in_channels=3,
-        out_channels=1,
-        kernel_size=24,
-    )
+    vae = VAE(input_size=(240, 240),
+              latent_size=32,
+              num_encoder_layers=3,
+              num_decoder_layers=3)
 
-    print(conv(x).shape)
-    print(240 - (32 - 1) * 7)
+    print(vae.reconstruction(x).shape)
+    print(vae.elbo(x, num_encoder_samples=1).elbo.shape)
+    print(vae.elbo(x, num_encoder_samples=1).rec_ll.shape)
+    print(vae.elbo(x, num_encoder_samples=1).kl.shape)
