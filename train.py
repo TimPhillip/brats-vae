@@ -51,6 +51,7 @@ def train(model, data, device, num_epochs=100):
 
             print(f"Epoch { epoch }: {elbo}")
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100, help="Number of epochs to train.")
@@ -61,10 +62,11 @@ def main():
     args = parser.parse_args()
 
     if args.device == 'gpu' and torch.cuda.is_available() and torch.cuda.device_count() >= 1:
-        device = torch.device('cuda')
+        device = torch.device('cuda', index=0)
+        print(f"Running experiment on { torch.cuda.get_device_name(device) }")
     else:
         device = torch.device('cpu')
-    print(f"Running experiment on {device}")
+        print(f"Running experiment on CPU")
 
     dataset = BrainDataset(args.dataset)
     model = VAE(input_size=(240, 240),
