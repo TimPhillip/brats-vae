@@ -31,7 +31,7 @@ def train(model, data, device,
     data_loader = torch.utils.data.DataLoader(
         dataset=data,
         batch_size=batch_size,
-        shuffle=False
+        shuffle=True
     )
 
     for epoch in range(num_epochs):
