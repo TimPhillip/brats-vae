@@ -249,7 +249,7 @@ class VAE(nn.Module):
 
         rec_ll /= num_encoder_samples
         rec_ll = torch.mean(rec_ll)
-        kl = torch.mean(torch.distributions.kl_divergence(latent_dist, self.latent_prior_distribution))
+        kl = torch.sum(torch.distributions.kl_divergence(latent_dist, self.latent_prior_distribution))
         loss = rec_ll - kl
         return ELBO(
             elbo=loss,

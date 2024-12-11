@@ -22,11 +22,22 @@ def plot_vae_samples(samples):
         ax.imshow(img, cmap='Greys_r')
 
 
+def plot_reconstruction(img, img_recon):
+    fig, axs = plt.subplots(nrows=1, ncols=2)
+    axs[0].imshow(torch.squeeze(img).cpu().numpy(), cmap='Greys_r')
+    axs[0].set_title('Original')
+    axs[1].imshow(torch.squeeze(img_recon).cpu().numpy(), cmap='Greys_r')
+    axs[1].set_title('Reconstructed')
+    fig.tight_layout()
+
+
 def train(model, data, device,
           num_epochs=100,
           batch_size=64,
           num_encoder_samples=4,
-          plot_samples=True):
+          plot_samples=True,
+          log_loss_every=1,
+          plot_reconstruction_every=100):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     data_loader = torch.utils.data.DataLoader(
@@ -44,9 +55,9 @@ def train(model, data, device,
                 plot_vae_samples(samples)
                 plt.savefig(f'samples/samples_epoch_{epoch}.png')
 
-        model.train()
-        for batch in data_loader:
+        for i, batch in enumerate(data_loader):
 
+            model.train()
             batch = batch.to(device)
 
             optimizer.zero_grad()
@@ -55,7 +66,16 @@ def train(model, data, device,
             (-elbo.elbo).backward()
             optimizer.step()
 
-            logging.info(f"Epoch { epoch }: {elbo}")
+            if i % log_loss_every == 0:
+                logging.info(f"Epoch { epoch }: {elbo}")
+
+            if i % 100 == 0:
+                with torch.no_grad():
+                    model.eval()
+                    img = batch[0:1]
+                    img_recon = model.reconstruction(img)
+                    plot_reconstruction(img, img_recon)
+                    plt.savefig(f'recon/recon_epoch_{epoch}_{i}.png')
 
 
 def parse_training_config():
@@ -69,9 +89,11 @@ def parse_training_config():
                         default='gpu',
                         help="Which device to use.")
     parser.add_argument("--plot_samples", type=bool, default=True, help="Whether to plot samples.")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size.")
     parser.add_argument("--num_encoder_samples", type=int, default=4,
                         help="Number of encoder samples in ELBO during training.")
+    parser.add_argument("--log_loss_every", type=int, default=10)
+    parser.add_argument("--plot_reconstruction_every", type=int, default=100)
     args = parser.parse_args()
     return args
 
@@ -111,7 +133,9 @@ def main():
           num_epochs=args.epochs,
           plot_samples=args.plot_samples,
           num_encoder_samples=args.num_encoder_samples,
-          batch_size=args.batch_size)
+          batch_size=args.batch_size,
+          log_loss_every=args.log_loss_every,
+          plot_reconstruction_every=args.plot_reconstruction_every)
 
 
 if __name__ == '__main__':
