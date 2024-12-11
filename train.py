@@ -25,6 +25,7 @@ def plot_vae_samples(samples):
 def train(model, data, device,
           num_epochs=100,
           batch_size=64,
+          num_encoder_samples=4,
           plot_samples=True):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -50,27 +51,32 @@ def train(model, data, device,
 
             optimizer.zero_grad()
 
-            elbo = model.elbo(batch, num_encoder_samples=10)
+            elbo = model.elbo(batch, num_encoder_samples=num_encoder_samples)
             (-elbo.elbo).backward()
             optimizer.step()
 
             print(f"Epoch { epoch }: {elbo}")
 
 
-def main():
+def parse_training_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100, help="Number of epochs to train.")
     parser.add_argument("--dataset", type=str, required=True, help="Path to brain dataset.")
-    parser.add_argument("--num_layers", type=int, default=3, help="Number of layers.")
-    parser.add_argument("--latent_size", type=int, default=32, help="Size of latent space.")
+    parser.add_argument("--conv-kernel-size", type=int, default=5, help="Convolution kernel size.")
+    parser.add_argument("--conv-filters", type=int, default=16, help="Number of convolution filters.")
     parser.add_argument("--device",
                         type=str, choices=['cpu', 'gpu'],
                         default='gpu',
                         help="Which device to use.")
     parser.add_argument("--plot_samples", type=bool, default=True, help="Whether to plot samples.")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
+    parser.add_argument("--num_encoder_samples", type=int, default=4,
+                        help="Number of encoder samples in ELBO during training.")
     args = parser.parse_args()
+    return args
 
+
+def select_device(args):
     if args.device == 'gpu' and torch.cuda.is_available() and torch.cuda.device_count() >= 1:
         device = torch.device('cuda', index=0)
         print(f"Running experiment on { torch.cuda.get_device_name(device) }")
@@ -78,15 +84,24 @@ def main():
         device = torch.device('cpu')
         print(f"Running experiment on CPU")
 
+    return device
+
+
+def main():
+
+    args = parse_training_config()
+    device = select_device(args)
+
     dataset = BrainDataset(args.dataset)
     model = VAE(input_size=(240, 240),
-                latent_size=args.latent_size,
-                num_encoder_layers=args.num_layers,
-                num_decoder_layers=args.num_layers)
+                kernel_size=args.conv_kernel_size,
+                base_num_features=args.conv_filters)
     model.to(device)
+
     train(model, dataset, device,
           num_epochs=args.epochs,
           plot_samples=args.plot_samples,
+          num_encoder_samples=args.num_encoder_samples,
           batch_size=args.batch_size)
 
 
