@@ -55,7 +55,7 @@ def train(model, data, device,
             (-elbo.elbo).backward()
             optimizer.step()
 
-            print(f"Epoch { epoch }: {elbo}")
+            logging.info(f"Epoch { epoch }: {elbo}")
 
 
 def parse_training_config():
@@ -79,16 +79,25 @@ def parse_training_config():
 def select_device(args):
     if args.device == 'gpu' and torch.cuda.is_available() and torch.cuda.device_count() >= 1:
         device = torch.device('cuda', index=0)
-        print(f"Running experiment on { torch.cuda.get_device_name(device) }")
+        logging.info(f"Running experiment on { torch.cuda.get_device_name(device) }")
     else:
         device = torch.device('cpu')
-        print(f"Running experiment on CPU")
+        logging.info(f"Running experiment on CPU")
 
     return device
 
 
+def configure_logging(filename):
+    logging.basicConfig(level=logging.INFO,
+                        filename=filename,
+                        filemode="w",
+                        format="%(asctime)s [%(levelname)s]  %(message)s",
+                        datefmt="%d.%m.%Y %H:%M:%S")
+
+
 def main():
 
+    configure_logging(filename="logs/train.log")
     args = parse_training_config()
     device = select_device(args)
 
