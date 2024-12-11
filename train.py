@@ -19,14 +19,14 @@ def plot_vae_samples(samples):
     fig, axs = plt.subplots(nrows=n_rows, ncols=n_rows)
     for ax, sample in zip(np.reshape(axs, -1), samples):
         img = torch.squeeze(sample).cpu().numpy()
-        ax.imshow(img, cmap='Greys_r')
+        ax.imshow(img, cmap='Greys_r', vmin=0, vmax=1)
 
 
 def plot_reconstruction(img, img_recon):
     fig, axs = plt.subplots(nrows=1, ncols=2)
-    axs[0].imshow(torch.squeeze(img).cpu().numpy(), cmap='Greys_r')
+    axs[0].imshow(torch.squeeze(img).cpu().numpy(), cmap='Greys_r', vmin=0, vmax=1)
     axs[0].set_title('Original')
-    axs[1].imshow(torch.squeeze(img_recon).cpu().numpy(), cmap='Greys_r')
+    axs[1].imshow(torch.squeeze(img_recon).cpu().numpy(), cmap='Greys_r', vmin=0, vmax=1)
     axs[1].set_title('Reconstructed')
     fig.tight_layout()
 
@@ -76,6 +76,7 @@ def train(model, data, device,
                     plot_reconstruction(img, img_recon)
                     plt.savefig(f'recon/recon_epoch_{epoch}_{i}.png')
                     model.train()
+
 
 def parse_training_config():
     parser = argparse.ArgumentParser()

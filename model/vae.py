@@ -242,15 +242,18 @@ class VAE(nn.Module):
 
         for i in range(num_encoder_samples):
             latent_code = latent_dist.sample()
+            """
             rec_ll -= torch.nn.functional.binary_cross_entropy(
                 self.decoder(latent_code),
                 x
             )
+            """
+            rec_ll -= torch.mean(torch.square(self.decoder(latent_code) - x))
 
         rec_ll /= num_encoder_samples
         rec_ll = torch.mean(rec_ll)
         kl = torch.mean(torch.distributions.kl_divergence(latent_dist, self.latent_prior_distribution))
-        loss = rec_ll - kl
+        loss = rec_ll #- kl
         return ELBO(
             elbo=loss,
             rec_ll=rec_ll,

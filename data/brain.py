@@ -44,5 +44,5 @@ if __name__ == '__main__':
 
     dataset = BrainDataset(path="/Users/tim/Documents/GTD/04 - Tumor Growth/BraTS/data")
     for timg in dataset:
-        plt.imshow(timg.numpy(), cmap='Greys_r')
+        plt.imshow(torch.squeeze(timg).numpy(), cmap='Greys_r', vmin=0., vmax=1.)
         plt.show()
