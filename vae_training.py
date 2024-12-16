@@ -141,6 +141,7 @@ def train(model, training_data, validation_data, device,
                 recon_filename = f'recon/recon_epoch_{epoch}_{i}.png'
                 plt.savefig(recon_filename)
                 mlflow.log_artifact(recon_filename)
+                plt.close()
 
                 # plot samples
                 samples = model.sample(num_samples=9)
@@ -148,6 +149,7 @@ def train(model, training_data, validation_data, device,
                 sample_filename = f'samples/samples_epoch_{epoch}.png'
                 plt.savefig(sample_filename)
                 mlflow.log_artifact(sample_filename)
+                plt.close()
 
             except Exception as e:
                 logging.error(e)
