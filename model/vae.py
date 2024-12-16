@@ -85,13 +85,14 @@ class Encoder(nn.Module):
 
     def __init__(self, input_size,
                  base_num_features,
+                 input_channels,
                  kernel_size):
 
         super(Encoder, self).__init__()
 
         assert input_size[0] == input_size[1]
         size = input_size[0]
-        num_channels = 1
+        num_channels = input_channels
         d_blocks = []
 
         while size > 1:
@@ -139,12 +140,16 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, final_size, base_num_features, kernel_size):
+    def __init__(self,
+                 final_size,
+                 base_num_features,
+                 input_channels,
+                 kernel_size):
         super(Decoder, self).__init__()
 
         assert final_size[0] == final_size[1]
         size = final_size[0]
-        num_channels = 1
+        num_channels = input_channels
 
         u_blocks = []
         while size > 1:
@@ -174,7 +179,8 @@ class Decoder(nn.Module):
 
         self.u_blocks = nn.Sequential(*reversed(u_blocks))
         self.out_layer = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=1, kernel_size=1),
+            nn.Conv2d(in_channels=input_channels,
+                      out_channels=input_channels, kernel_size=1),
             nn.Sigmoid()
         )
 
@@ -202,12 +208,15 @@ class ELBO:
 class VAE(nn.Module):
 
     def __init__(self, input_size,
-                 kernel_size, base_num_features):
+                 kernel_size,
+                 input_channels,
+                 base_num_features):
         super().__init__()
 
         self.encoder = Encoder(
             input_size=input_size,
             base_num_features=base_num_features,
+            input_channels=input_channels,
             kernel_size=kernel_size
         )
 
@@ -216,6 +225,7 @@ class VAE(nn.Module):
         self.decoder = Decoder(
             final_size=input_size,
             base_num_features=base_num_features,
+            input_channels=input_channels,
             kernel_size=kernel_size
         )
 

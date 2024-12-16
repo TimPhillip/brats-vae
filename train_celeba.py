@@ -1,4 +1,5 @@
 import torch
+from torchvision.transforms import transforms
 import torch.utils.data
 import logging
 from matplotlib import pyplot as plt
@@ -6,8 +7,23 @@ import math
 import argparse
 import numpy as np
 
-from data.brain import BrainDataset
+from data.celeba import CelebADataset
 from model.vae import VAE
+
+
+def get_image_for_plotting(img):
+
+    img = torch.squeeze(img)
+
+    # rearange the image axis
+    img = torch.permute(img, (1, 2, 0))
+
+    # denormalize the image
+    img = img * 0.5 + 0.5
+
+    img = img.cpu().numpy()
+
+    return img
 
 
 def plot_vae_samples(samples):
@@ -18,15 +34,15 @@ def plot_vae_samples(samples):
 
     fig, axs = plt.subplots(nrows=n_rows, ncols=n_rows)
     for ax, sample in zip(np.reshape(axs, -1), samples):
-        img = torch.squeeze(sample).cpu().numpy()
-        ax.imshow(img, cmap='Greys_r', vmin=0, vmax=1)
+        img = get_image_for_plotting(sample)
+        ax.imshow(img)
 
 
 def plot_reconstruction(img, img_recon):
     fig, axs = plt.subplots(nrows=1, ncols=2)
-    axs[0].imshow(torch.squeeze(img).cpu().numpy(), cmap='Greys_r', vmin=0, vmax=1)
+    axs[0].imshow(get_image_for_plotting(img))
     axs[0].set_title('Original')
-    axs[1].imshow(torch.squeeze(img_recon).cpu().numpy(), cmap='Greys_r', vmin=0, vmax=1)
+    axs[1].imshow(get_image_for_plotting(img_recon))
     axs[1].set_title('Reconstructed')
     fig.tight_layout()
 
@@ -123,9 +139,18 @@ def main():
     args = parse_training_config()
     device = select_device(args)
 
-    dataset = BrainDataset(args.dataset)
-    model = VAE(input_size=(240, 240),
-                input_channels=1,
+    dataset = CelebADataset(
+        directory=args.dataset,
+        transform=transforms.Compose([
+            transforms.Resize(128),
+            transforms.CenterCrop(128),
+            transforms.ToTensor(),
+            transforms.Normalize(0.5, 0.5)
+        ])
+    )
+
+    model = VAE(input_size=(128, 128),
+                input_channels=3,
                 kernel_size=args.conv_kernel_size,
                 base_num_features=args.conv_filters)
     model.to(device)
