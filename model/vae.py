@@ -231,8 +231,8 @@ class VAE(nn.Module):
 
         assert self.encoder.latent_size == self.decoder.latent_size
 
-        self.latent_mean = nn.Parameter(torch.zeros(self.latent_size))
-        self.latent_std = nn.Parameter(torch.ones(self.latent_size))
+        self.latent_mean = nn.Parameter(torch.zeros(self.latent_size), requires_grad=False)
+        self.latent_std = nn.Parameter(torch.ones(self.latent_size), requires_grad=False)
         self.latent_prior_distribution = torch.distributions.Normal(self.latent_mean, self.latent_std)
 
     def forward(self, x):
