@@ -38,12 +38,21 @@ def plot_vae_samples(samples):
         ax.imshow(img)
 
 
-def plot_reconstruction(img, img_recon):
-    fig, axs = plt.subplots(nrows=1, ncols=2)
-    axs[0].imshow(get_image_for_plotting(img))
-    axs[0].set_title('Original')
-    axs[1].imshow(get_image_for_plotting(img_recon))
-    axs[1].set_title('Reconstructed')
+def plot_reconstruction(imgs, img_recons):
+
+    num_examples = len(imgs)
+    fig, axs = plt.subplots(nrows=2, ncols=num_examples, figsize=(8, 4))
+
+    for i, (img, img_recon) in enumerate(zip(imgs, img_recons)):
+
+        # image
+        axs[0][i].imshow(get_image_for_plotting(img))
+        axs[0][i].set_title('Original')
+
+        # reconstruction
+        axs[1][i].imshow(get_image_for_plotting(img_recon))
+        axs[1][i].set_title('Reconstructed')
+
     fig.tight_layout()
 
 
@@ -87,7 +96,7 @@ def train(model, data, device,
             if i % plot_reconstruction_every == 0:
                 with torch.no_grad():
                     model.eval()
-                    img = batch[0:1]
+                    img = batch[0:4]
                     img_recon = model.reconstruction(img)
                     plot_reconstruction(img, img_recon)
                     plt.savefig(f'recon/recon_epoch_{epoch}_{i}.png')
