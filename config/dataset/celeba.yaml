@@ -1,0 +1,14 @@
+name: CelebA
+image_channels: 3
+
+splits:
+
+  training:
+    _target_: data.celeba.CelebADataset
+    split: train
+    directory: /Users/Tim/Downloads/celeba
+
+  validation:
+    _target_: data.celeba.CelebADataset
+    split: val
+    directory: /Users/Tim/Downloads/celeba

@@ -1,0 +1,6 @@
+# @package _global_
+
+device: cpu
+
+dataset:
+  directory: /Users/Tim/Downloads/celeba

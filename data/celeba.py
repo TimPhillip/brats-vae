@@ -27,7 +27,6 @@ class CelebADataset(Dataset):
         partitions_file = os.path.join(self.directory, 'list_eval_partition.txt')
         partitions = pd.read_csv(partitions_file, sep=' ', names=['filename', 'partition'])
         partitions.partition = partitions.partition.map(lambda x: partition_idx[x])
-        print(partitions.partition.unique())
         return partitions[partitions.partition == self.split].filename.tolist()
 
     def __len__(self):

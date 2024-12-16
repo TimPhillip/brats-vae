@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - /dataset: brats
+  - _self_
+
+model:
+  image_size: 128
+  base_num_features: 16
+  conv_kernel_size: 5
+
+
+training:
+  learning_rate: 1e-3
+  num_encoder_samples: 4
+  elbo_kl_weight: 1.0
+  num_epochs: 100
+  batch_size: 64
+  log_loss_every_steps: 100
+  plot_reconstruction_every_steps: 1000
+
+
+tracking:
+  experiment: brats-highres
+  uri: ./mlruns
+

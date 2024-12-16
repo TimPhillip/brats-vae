@@ -1,0 +1,7 @@
+defaults:
+  - experiment/celeba-128
+  - launcher/local
+
+
+logging:
+  filename: training.log

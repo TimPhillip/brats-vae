@@ -1,0 +1,16 @@
+name: BraTS
+image_channels: 1
+
+splits:
+
+  training:
+    _target_: data.brain.BraTSDataset
+    path: "/Users/tim/Documents/GTD/04 - Tumor Growth/BraTS/data"
+
+
+  validation:
+    _target_: data.brain.BraTSDataset
+    path: "/Users/tim/Documents/GTD/04 - Tumor Growth/BraTS/data"
+    min_slice_depth: 93
+    max_slice_depth: 94
+    depth_stride: 1
