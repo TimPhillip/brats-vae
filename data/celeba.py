@@ -4,13 +4,14 @@ from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 import pandas as pd
 import os
+import hydra
 
 
 class CelebADataset(Dataset):
 
     def __init__(self, directory, transform=None, split="train"):
         self.transform = transform
-        self.directory = directory
+        self.directory = hydra.utils.to_absolute_path(directory)
         self.split = split
 
         self.filenames = self.load_filenames()
