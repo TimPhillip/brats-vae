@@ -11,7 +11,7 @@ class DownSamplingResidualBlock(nn.Module):
         down_sample_stride = 2
         inplace_stride = 1
 
-        self.activation = nn.ReLU(inplace=True)
+        self.activation = nn.ELU()
         self.skip_conv = nn.Conv2d(in_channels=in_channels,
                                    out_channels=out_channels,
                                    kernel_size=kernel_size,
@@ -47,7 +47,7 @@ class UpSamplingResidualBlock(nn.Sequential):
     def __init__(self, in_channels, out_channels, kernel_size):
         super(UpSamplingResidualBlock, self).__init__()
 
-        self.activation = nn.ReLU(inplace=True)
+        self.activation = nn.ELU()
         self.upsample = nn.Upsample(scale_factor=2,
                                     mode='nearest')
 
@@ -86,7 +86,9 @@ class Encoder(nn.Module):
     def __init__(self, input_size,
                  base_num_features,
                  input_channels,
-                 kernel_size):
+                 kernel_size,
+                 final_conv_image_size,
+                 latent_size):
 
         super(Encoder, self).__init__()
 
@@ -95,11 +97,11 @@ class Encoder(nn.Module):
         num_channels = input_channels
         d_blocks = []
 
-        while size > 1:
+        while size > final_conv_image_size:
 
             if size % 2 == 0:
 
-                out_channels = num_channels * 2 if num_channels > 1 else base_num_features
+                out_channels = num_channels * 2 if num_channels > input_channels else base_num_features
                 d_blocks.append(
                     DownSamplingResidualBlock(in_channels=num_channels,
                                               out_channels=out_channels,
@@ -122,10 +124,10 @@ class Encoder(nn.Module):
 
         self.d_blocks = nn.Sequential(*d_blocks)
         self.out_layer = nn.Sequential(
-            nn.Conv2d(in_channels=num_channels, out_channels=2*num_channels, kernel_size=1),
+            nn.Conv2d(in_channels=num_channels, out_channels=2*latent_size, kernel_size=final_conv_image_size),
             nn.Flatten()
         )
-        self.latent_size = num_channels
+        self.latent_size = latent_size
 
     def forward(self, x):
         out = self.d_blocks(x)
@@ -144,7 +146,9 @@ class Decoder(nn.Module):
                  final_size,
                  base_num_features,
                  input_channels,
-                 kernel_size):
+                 kernel_size,
+                 final_conv_image_size,
+                 latent_size):
         super(Decoder, self).__init__()
 
         assert final_size[0] == final_size[1]
@@ -152,7 +156,7 @@ class Decoder(nn.Module):
         num_channels = input_channels
 
         u_blocks = []
-        while size > 1:
+        while size > final_conv_image_size:
             if size % 2 == 0:
                 in_channels = num_channels * 2 if num_channels > 1 else base_num_features
 
@@ -177,14 +181,22 @@ class Decoder(nn.Module):
 
                 size = desired_size
 
+        u_blocks.append(
+            nn.Sequential(
+                nn.ConvTranspose2d(in_channels=latent_size, out_channels=num_channels,
+                                   kernel_size=final_conv_image_size),
+                nn.LeakyReLU()
+            )
+        )
+
         self.u_blocks = nn.Sequential(*reversed(u_blocks))
         self.out_layer = nn.Sequential(
             nn.Conv2d(in_channels=input_channels,
                       out_channels=input_channels, kernel_size=1),
-            nn.Sigmoid()
+            nn.Tanh() #nn.Sigmoid()
         )
 
-        self.latent_size = num_channels
+        self.latent_size = latent_size
         self.unflatten = nn.Unflatten(dim=1, unflattened_size=[self.latent_size, 1, 1])
 
     def forward(self, x):
@@ -210,14 +222,18 @@ class VAE(nn.Module):
     def __init__(self, input_size,
                  kernel_size,
                  input_channels,
-                 base_num_features):
+                 base_num_features,
+                 final_conv_image_size,
+                 latent_size):
         super().__init__()
 
         self.encoder = Encoder(
             input_size=input_size,
             base_num_features=base_num_features,
             input_channels=input_channels,
-            kernel_size=kernel_size
+            kernel_size=kernel_size,
+            final_conv_image_size=final_conv_image_size,
+            latent_size=latent_size
         )
 
         self.latent_size = self.encoder.latent_size
@@ -226,7 +242,9 @@ class VAE(nn.Module):
             final_size=input_size,
             base_num_features=base_num_features,
             input_channels=input_channels,
-            kernel_size=kernel_size
+            kernel_size=kernel_size,
+            final_conv_image_size=final_conv_image_size,
+            latent_size=latent_size
         )
 
         assert self.encoder.latent_size == self.decoder.latent_size
@@ -243,7 +261,7 @@ class VAE(nn.Module):
         reconstruction = self.decoder(latent_code)
         return reconstruction
 
-    def elbo(self, x, num_encoder_samples= 1):
+    def elbo(self, x, num_encoder_samples=1, kl_weight=1.0):
 
         loss = torch.zeros(x.shape[0]).to(x.device)
         rec_ll = torch.zeros_like(loss)
@@ -263,7 +281,7 @@ class VAE(nn.Module):
         rec_ll /= num_encoder_samples
         rec_ll = torch.mean(rec_ll)
         kl = torch.mean(torch.distributions.kl_divergence(latent_dist, self.latent_prior_distribution))
-        loss = rec_ll - kl
+        loss = rec_ll - kl_weight * kl
         return ELBO(
             elbo=loss,
             rec_ll=rec_ll,
@@ -274,45 +292,3 @@ class VAE(nn.Module):
         latent_codes = self.latent_prior_distribution.sample((num_samples,))
         samples = self.decoder(latent_codes)
         return samples
-
-
-if __name__ == "__main__":
-
-    x = torch.rand((32, 1, 240, 240))
-
-    enc = Encoder(input_size=(240, 240), kernel_size=5, base_num_features=16)
-    dec = Decoder(final_size=(240, 240), kernel_size=5, base_num_features=16)
-
-    d_blocks = nn.Sequential(
-        DownSamplingResidualBlock(in_channels=1, out_channels=16, kernel_size=5),
-        DownSamplingResidualBlock(in_channels=16, out_channels=32, kernel_size=5),
-        DownSamplingResidualBlock(in_channels=32, out_channels=64, kernel_size=5),
-        DownSamplingResidualBlock(in_channels=64, out_channels=128, kernel_size=5),
-        nn.Conv2d(in_channels=128, out_channels=128, kernel_size=2, padding=1),
-        DownSamplingResidualBlock(in_channels=128, out_channels=256, kernel_size=5),
-        DownSamplingResidualBlock(in_channels=256, out_channels=512, kernel_size=5),
-        DownSamplingResidualBlock(in_channels=512, out_channels=1024, kernel_size=5),
-        DownSamplingResidualBlock(in_channels=1024, out_channels=2048, kernel_size=5),
-        nn.Flatten()
-    )
-
-    z = d_blocks(x)
-    print(z.shape)
-    print(enc(x)[0].shape)
-
-    u_blocks = nn.Sequential(
-        nn.Unflatten(dim=1, unflattened_size=[2048, 1, 1]),
-        UpSamplingResidualBlock(in_channels=2048, out_channels=1024, kernel_size=5),
-        UpSamplingResidualBlock(in_channels=1024, out_channels=512, kernel_size=5),
-        UpSamplingResidualBlock(in_channels=512, out_channels=256, kernel_size=5),
-        UpSamplingResidualBlock(in_channels=256, out_channels=128, kernel_size=5),
-        nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=2, padding=1),
-        UpSamplingResidualBlock(in_channels=128, out_channels=64, kernel_size=5),
-        UpSamplingResidualBlock(in_channels=64, out_channels=32, kernel_size=5),
-        UpSamplingResidualBlock(in_channels=32, out_channels=16, kernel_size=5),
-        UpSamplingResidualBlock(in_channels=16, out_channels=1, kernel_size=5),
-        nn.Conv2d(in_channels=1, out_channels=1, kernel_size=1),
-        nn.Sigmoid()
-    )
-    print(u_blocks(z).shape)
-    print(dec(z).shape)

@@ -1,7 +1,13 @@
 defaults:
-  - experiment/celeba-128
+  - experiment/celeba-64
   - launcher/local
+  - _self_
 
 
 logging:
-  filename: training.log
+  filename: vae_training.log
+
+
+hydra:
+  job:
+    chdir: True

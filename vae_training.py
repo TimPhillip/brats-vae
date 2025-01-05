@@ -1,3 +1,5 @@
+import os
+
 import omegaconf
 import torch
 from torchvision.transforms import transforms
@@ -65,6 +67,7 @@ def train(model, training_data, validation_data, device,
           batch_size=64,
           learning_rate=1e-3,
           num_encoder_samples=4,
+          elbo_kl_weight=1.0,
           plot_samples=True,
           log_loss_every=1,
           plot_reconstruction_every=100):
@@ -79,10 +82,14 @@ def train(model, training_data, validation_data, device,
     validation_data_loader = torch.utils.data.DataLoader(
         dataset=validation_data,
         batch_size=batch_size,
-        shuffle=False
+        shuffle=True
     )
 
+    logging.info(("-" * 30) + " Training " + ("-" * 30))
+
     for epoch in range(num_epochs):
+
+        logging.info(("-" * 10) + f" Epoch { epoch} " + ("-" * 10))
 
         model.train()
 
@@ -98,7 +105,7 @@ def train(model, training_data, validation_data, device,
 
             optimizer.zero_grad()
 
-            elbo = model.elbo(batch, num_encoder_samples=num_encoder_samples)
+            elbo = model.elbo(batch, num_encoder_samples=num_encoder_samples, kl_weight=elbo_kl_weight)
             (-elbo.elbo).backward()
             optimizer.step()
 
@@ -128,7 +135,7 @@ def train(model, training_data, validation_data, device,
             for batch in validation_data_loader:
                 batch = batch.to(device)
 
-                elbo = model.elbo(batch, num_encoder_samples=num_encoder_samples)
+                elbo = model.elbo(batch, num_encoder_samples=num_encoder_samples, kl_weight=elbo_kl_weight)
                 num_evaluation_steps += 1
                 for metric in eval_stats.keys():
                     eval_stats[metric] += getattr(elbo, metric)
@@ -150,6 +157,9 @@ def train(model, training_data, validation_data, device,
                 plt.savefig(sample_filename)
                 mlflow.log_artifact(sample_filename)
                 plt.close()
+
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt()
 
             except Exception as e:
                 logging.error(e)
@@ -186,10 +196,20 @@ def main(config: DictConfig):
 
     # configure logging
     configure_logging(filename=config.logging.filename)
+    logging.info(f"Started new experiment at { os.getcwd() }")
 
     # configure tracking
-    mlflow.set_tracking_uri(config.tracking.uri)
+    tracking_uri = hydra.utils.to_absolute_path(config.tracking.uri)
+    logging.info(f"MLFlow Tracking at {tracking_uri}")
+    mlflow.set_tracking_uri(tracking_uri)
+
+    exp = mlflow.get_experiment_by_name(config.tracking.experiment)
+    if exp is None:
+        mlflow.create_experiment(config.tracking.experiment)
+        logging.info(f"Created a new experiment with name {config.tracking.experiment} in MLFlow")
+
     mlflow.set_experiment(config.tracking.experiment)
+    logging.info(f"Started a new run in MLFlow experiment {config.tracking.experiment}")
 
     with mlflow.start_run() as run:
 
@@ -213,7 +233,9 @@ def main(config: DictConfig):
             model = VAE(input_size=(image_size, image_size),
                         input_channels=config.dataset.image_channels,
                         kernel_size=config.model.conv_kernel_size,
-                        base_num_features=config.model.base_num_features)
+                        base_num_features=config.model.base_num_features,
+                        final_conv_image_size=config.model.final_conv_image_size,
+                        latent_size=config.model.latent_size)
             model.to(device)
 
             # finally run the training
@@ -221,10 +243,15 @@ def main(config: DictConfig):
                   num_epochs=config.training.num_epochs,
                   plot_samples=True,
                   num_encoder_samples=config.training.num_encoder_samples,
+                  elbo_kl_weight=config.training.elbo_kl_weight,
                   batch_size=config.training.batch_size,
                   log_loss_every=config.training.log_loss_every_steps,
                   plot_reconstruction_every=config.training.plot_reconstruction_every_steps,
                   learning_rate=config.training.learning_rate)
+
+        except KeyboardInterrupt:
+            logging.info(("-" * 30) + " End " + ("-" * 30))
+            logging.warning("Experiment interrupted by keyboard interrupt.")
 
         except Exception as e:
             logging.error(e)

@@ -1,4 +1,6 @@
 /samples/
 .idea
 /logs/
+/outputs
+/mlruns
 

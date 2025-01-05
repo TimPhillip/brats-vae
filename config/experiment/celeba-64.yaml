@@ -1,0 +1,27 @@
+# @package _global_
+defaults:
+  - /dataset: celeba
+  - _self_
+
+model:
+  image_size: 64
+  base_num_features: 64
+  conv_kernel_size: 3
+  final_conv_image_size: 4
+  latent_size: 512
+
+
+training:
+  learning_rate: 1e-4
+  num_encoder_samples: 4
+  elbo_kl_weight: .1
+  num_epochs: 100
+  batch_size: 64
+  log_loss_every_steps: 100
+  plot_reconstruction_every_steps: 1000
+
+
+tracking:
+  experiment: celeba-64
+  uri: ./mlruns
+
