@@ -87,6 +87,10 @@ def train(model, training_data, validation_data, device,
 
     logging.info(("-" * 30) + " Training " + ("-" * 30))
 
+    # save the model to disk
+    mlflow.pytorch.log_model(model, 'vae')
+    logging.info("Saved model to disk")
+
     for epoch in range(num_epochs):
 
         logging.info(("-" * 10) + f" Epoch { epoch} " + ("-" * 10))
@@ -120,6 +124,10 @@ def train(model, training_data, validation_data, device,
             mlflow.log_metric(metric,
                               epoch_stats[metric] / num_epoch_steps,
                               step=epoch)
+
+        # save the model to disk
+        mlflow.pytorch.log_model(model, 'vae')
+        logging.info("Saved model to disk")
 
         # run evalutions
         with torch.no_grad():
@@ -212,6 +220,10 @@ def main(config: DictConfig):
     logging.info(f"Started a new run in MLFlow experiment {config.tracking.experiment}")
 
     with mlflow.start_run() as run:
+
+        logging.info(f"Experiment ID: {run.info.experiment_id}")
+        logging.info(f"Run name: {run.info.run_name}")
+        logging.info(f"Run ID: {run.info.run_id}")
 
         try:
             device = select_device(config)
