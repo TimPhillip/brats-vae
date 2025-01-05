@@ -149,6 +149,11 @@ def train(model, training_data, validation_data, device,
                     eval_stats[metric] += getattr(elbo, metric)
 
             try:
+
+                # first check whether the directory exist
+                if not os.path.exists("./recon"):
+                    os.mkdir("./recon")
+
                 # plot reconstructions with the last batch from evaluation
                 img = batch[0:4]
                 img_recon = model.reconstruction(img)
@@ -157,6 +162,10 @@ def train(model, training_data, validation_data, device,
                 plt.savefig(recon_filename)
                 mlflow.log_artifact(recon_filename)
                 plt.close()
+
+                # first check whether the directory exist
+                if not os.path.exists("./samples"):
+                    os.mkdir("./samples")
 
                 # plot samples
                 samples = model.sample(num_samples=9)
